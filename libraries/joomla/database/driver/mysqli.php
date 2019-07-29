@@ -3,7 +3,7 @@
  * @package     Joomla.Platform
  * @subpackage  Database
  *
- * @copyright   Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE
  */
 
@@ -12,8 +12,8 @@ defined('JPATH_PLATFORM') or die;
 /**
  * MySQLi database driver
  *
- * @see    http://php.net/manual/en/book.mysqli.php
- * @since  12.1
+ * @link   https://www.php.net/manual/en/book.mysqli.php
+ * @since  3.0.0
  */
 class JDatabaseDriverMysqli extends JDatabaseDriver
 {
@@ -21,7 +21,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 * The name of the database driver.
 	 *
 	 * @var    string
-	 * @since  12.1
+	 * @since  3.0.0
 	 */
 	public $name = 'mysqli';
 
@@ -35,7 +35,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 
 	/**
 	 * @var    mysqli  The database connection resource.
-	 * @since  11.1
+	 * @since  1.7.0
 	 */
 	protected $connection;
 
@@ -46,7 +46,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 * used for the opening quote and the second for the closing quote.
 	 *
 	 * @var    string
-	 * @since  12.2
+	 * @since  3.0.1
 	 */
 	protected $nameQuote = '`';
 
@@ -55,13 +55,13 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 * defined in child classes to hold the appropriate value for the engine.
 	 *
 	 * @var    string
-	 * @since  12.2
+	 * @since  3.0.1
 	 */
 	protected $nullDate = '0000-00-00 00:00:00';
 
 	/**
 	 * @var    string  The minimum supported database version.
-	 * @since  12.2
+	 * @since  3.0.1
 	 */
 	protected static $dbMinimum = '5.0.4';
 
@@ -70,31 +70,21 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @param   array  $options  List of options used to configure the connection
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	public function __construct($options)
 	{
 		// Get some basic values from the options.
 		$options['host']     = (isset($options['host'])) ? $options['host'] : 'localhost';
-		$options['user']     = (isset($options['user'])) ? $options['user'] : 'root';
+		$options['user']     = (isset($options['user'])) ? $options['user'] : '';
 		$options['password'] = (isset($options['password'])) ? $options['password'] : '';
 		$options['database'] = (isset($options['database'])) ? $options['database'] : '';
 		$options['select']   = (isset($options['select'])) ? (bool) $options['select'] : true;
-		$options['port']     = null;
-		$options['socket']   = null;
+		$options['port']     = (isset($options['port'])) ? (int) $options['port'] : null;
+		$options['socket']   = (isset($options['socket'])) ? $options['socket'] : null;
 
 		// Finalize initialisation.
 		parent::__construct($options);
-	}
-
-	/**
-	 * Destructor.
-	 *
-	 * @since   12.1
-	 */
-	public function __destruct()
-	{
-		$this->disconnect();
 	}
 
 	/**
@@ -102,7 +92,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  void  Returns void if the database connected successfully.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 * @throws  RuntimeException
 	 */
 	public function connect()
@@ -121,7 +111,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 
 		if (preg_match($regex, $this->options['host'], $matches))
 		{
-			// It's an IPv4 address with ot without port
+			// It's an IPv4 address with or without port
 			$this->options['host'] = $matches['host'];
 
 			if (!empty($matches['port']))
@@ -141,7 +131,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 		}
 		elseif (preg_match('/^(?P<host>(\w+:\/{2,3})?[a-z0-9\.\-]+)(:(?P<port>[^:]+))?$/i', $this->options['host'], $matches))
 		{
-			// Named host (e.g domain.com or localhost) with ot without port
+			// Named host (e.g example.com or localhost) with or without port
 			$this->options['host'] = $matches['host'];
 
 			if (!empty($matches['port']))
@@ -168,9 +158,9 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 		}
 
 		// Make sure the MySQLi extension for PHP is installed and enabled.
-		if (!function_exists('mysqli_connect'))
+		if (!self::isSupported())
 		{
-			throw new RuntimeException('The MySQL adapter mysqli is not available');
+			throw new JDatabaseExceptionUnsupported('The MySQLi extension for PHP is not installed or enabled.');
 		}
 
 		$this->connection = @mysqli_connect(
@@ -180,7 +170,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 		// Attempt to connect to the server.
 		if (!$this->connection)
 		{
-			throw new RuntimeException('Could not connect to MySQL.');
+			throw new JDatabaseExceptionConnecting('Could not connect to MySQL server.');
 		}
 
 		// Set sql_mode to non_strict mode
@@ -198,11 +188,15 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 		// Set the character set (needed for MySQL 4.1.2+).
 		$this->utf = $this->setUtf();
 
-		// Turn MySQL profiling ON in debug mode:
-		if ($this->debug && $this->hasProfiling())
+		// Disable query cache and turn profiling ON in debug mode.
+		if ($this->debug)
 		{
-			mysqli_query($this->connection, "SET profiling_history_size = 100;");
-			mysqli_query($this->connection, "SET profiling = 1;");
+			mysqli_query($this->connection, 'SET query_cache_type = 0;');
+
+			if ($this->hasProfiling())
+			{
+				mysqli_query($this->connection, 'SET profiling_history_size = 100, profiling = 1;');
+			}
 		}
 	}
 
@@ -211,12 +205,12 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  void
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	public function disconnect()
 	{
 		// Close the connection.
-		if ($this->connection)
+		if ($this->connection instanceof mysqli && $this->connection->stat() !== false)
 		{
 			foreach ($this->disconnectHandlers as $h)
 			{
@@ -237,10 +231,21 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  string  The escaped string.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	public function escape($text, $extra = false)
 	{
+		if (is_int($text))
+		{
+			return $text;
+		}
+
+		if (is_float($text))
+		{
+			// Force the dot as a decimal point.
+			return str_replace(',', '.', $text);
+		}
+
 		$this->connect();
 
 		$result = mysqli_real_escape_string($this->getConnection(), $text);
@@ -258,11 +263,11 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  boolean  True on success, false otherwise.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	public static function isSupported()
 	{
-		return (function_exists('mysqli_connect'));
+		return function_exists('mysqli_connect');
 	}
 
 	/**
@@ -270,7 +275,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  boolean  True if connected to the database engine.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	public function connected()
 	{
@@ -290,7 +295,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  JDatabaseDriverMysqli  Returns this object to support chaining.
 	 *
-	 * @since   12.2
+	 * @since   3.0.1
 	 * @throws  RuntimeException
 	 */
 	public function dropTable($tableName, $ifExists = true)
@@ -307,11 +312,11 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	}
 
 	/**
-	 * Get the number of affected rows for the previous executed SQL statement.
+	 * Get the number of affected rows by the last INSERT, UPDATE, REPLACE or DELETE for the previous executed SQL statement.
 	 *
 	 * @return  integer  The number of affected rows.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	public function getAffectedRows()
 	{
@@ -325,7 +330,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  mixed  The collation in use by the database (string) or boolean false if not supported.
 	 *
-	 * @since   12.2
+	 * @since   3.0.1
 	 * @throws  RuntimeException
 	 */
 	public function getCollation()
@@ -372,12 +377,14 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 
 	/**
 	 * Get the number of returned rows for the previous executed SQL statement.
+	 * This command is only valid for statements like SELECT or SHOW that return an actual result set.
+	 * To retrieve the number of rows affected by an INSERT, UPDATE, REPLACE or DELETE query, use getAffectedRows().
 	 *
 	 * @param   resource  $cursor  An optional database cursor resource to extract the row count from.
 	 *
 	 * @return  integer   The number of returned rows.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	public function getNumRows($cursor = null)
 	{
@@ -391,7 +398,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  array  A list of the create SQL for the tables.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 * @throws  RuntimeException
 	 */
 	public function getTableCreate($tables)
@@ -424,7 +431,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  array  An array of fields for the database table.
 	 *
-	 * @since   12.2
+	 * @since   3.0.1
 	 * @throws  RuntimeException
 	 */
 	public function getTableColumns($table, $typeOnly = true)
@@ -442,7 +449,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 		{
 			foreach ($fields as $field)
 			{
-				$result[$field->Field] = preg_replace("/[(0-9)]/", '', $field->Type);
+				$result[$field->Field] = preg_replace('/[(0-9)]/', '', $field->Type);
 			}
 		}
 		// If we want the whole field data object add that to the list.
@@ -464,7 +471,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  array  An array of the column specification for the table.
 	 *
-	 * @since   12.2
+	 * @since   3.0.1
 	 * @throws  RuntimeException
 	 */
 	public function getTableKeys($table)
@@ -483,7 +490,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  array  An array of all the tables in the database.
 	 *
-	 * @since   12.2
+	 * @since   3.0.1
 	 * @throws  RuntimeException
 	 */
 	public function getTableList()
@@ -502,7 +509,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  string  The database connector version.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	public function getVersion()
 	{
@@ -517,7 +524,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 * @return  mixed  The value of the auto-increment field from the last inserted row.
 	 *                 If the value is greater than maximal int value, it will return a string.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	public function insertid()
 	{
@@ -533,7 +540,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  JDatabaseDriverMysqli  Returns this object to support chaining.
 	 *
-	 * @since   12.2
+	 * @since   3.0.1
 	 * @throws  RuntimeException
 	 */
 	public function lockTable($table)
@@ -548,18 +555,12 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  mixed  A database cursor resource on success, boolean false on failure.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 * @throws  RuntimeException
 	 */
 	public function execute()
 	{
 		$this->connect();
-
-		if (!is_object($this->connection))
-		{
-			JLog::add(JText::sprintf('JLIB_DATABASE_QUERY_FAILED', $this->errorNum, $this->errorMsg), JLog::ERROR, 'database');
-			throw new RuntimeException($this->errorMsg, $this->errorNum);
-		}
 
 		// Take a local copy so that we don't modify the original query and cause issues later
 		$query = $this->replacePrefix((string) $this->sql);
@@ -567,6 +568,12 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 		if (!($this->sql instanceof JDatabaseQuery) && ($this->limit > 0 || $this->offset > 0))
 		{
 			$query .= ' LIMIT ' . $this->offset . ', ' . $this->limit;
+		}
+
+		if (!is_object($this->connection))
+		{
+			JLog::add(JText::sprintf('JLIB_DATABASE_QUERY_FAILED', $this->errorNum, $this->errorMsg), JLog::ERROR, 'database');
+			throw new JDatabaseExceptionExecuting($query, $this->errorMsg, $this->errorNum);
 		}
 
 		// Increment the query counter.
@@ -615,7 +622,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 			$this->callStacks[count($this->callStacks) - 1][0]['memory'] = array(
 				$memoryBefore,
 				memory_get_usage(),
-				is_object($this->cursor) ? $this->getNumRows() : null
+				is_object($this->cursor) ? $this->getNumRows() : null,
 			);
 		}
 
@@ -624,7 +631,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 		{
 			// Get the error number and message before we execute any more queries.
 			$this->errorNum = $this->getErrorNumber();
-			$this->errorMsg = $this->getErrorMessage($query);
+			$this->errorMsg = $this->getErrorMessage();
 
 			// Check if the server was disconnected.
 			if (!$this->connected())
@@ -640,11 +647,11 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 				{
 					// Get the error number and message.
 					$this->errorNum = $this->getErrorNumber();
-					$this->errorMsg = $this->getErrorMessage($query);
+					$this->errorMsg = $this->getErrorMessage();
 
 					JLog::add(JText::sprintf('JLIB_DATABASE_QUERY_FAILED', $this->errorNum, $this->errorMsg), JLog::ERROR, 'database-error');
 
-					throw new RuntimeException($this->errorMsg, $this->errorNum, $e);
+					throw new JDatabaseExceptionExecuting($query, $this->errorMsg, $this->errorNum, $e);
 				}
 
 				// Since we were able to reconnect, run the query again.
@@ -655,7 +662,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 			{
 				JLog::add(JText::sprintf('JLIB_DATABASE_QUERY_FAILED', $this->errorNum, $this->errorMsg), JLog::ERROR, 'database-error');
 
-				throw new RuntimeException($this->errorMsg, $this->errorNum);
+				throw new JDatabaseExceptionExecuting($query, $this->errorMsg, $this->errorNum);
 			}
 		}
 
@@ -672,7 +679,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  JDatabaseDriverMysqli  Returns this object to support chaining.
 	 *
-	 * @since   12.2
+	 * @since   3.0.1
 	 * @throws  RuntimeException
 	 */
 	public function renameTable($oldTable, $newTable, $backup = null, $prefix = null)
@@ -689,7 +696,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  boolean  True if the database was successfully selected.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 * @throws  RuntimeException
 	 */
 	public function select($database)
@@ -703,7 +710,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 
 		if (!mysqli_select_db($this->connection, $database))
 		{
-			throw new RuntimeException('Could not connect to database.');
+			throw new JDatabaseExceptionConnecting('Could not connect to MySQL database.');
 		}
 
 		return true;
@@ -714,7 +721,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  boolean  True on success.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	public function setUtf()
 	{
@@ -755,7 +762,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  void
 	 *
-	 * @since   12.2
+	 * @since   3.0.1
 	 * @throws  RuntimeException
 	 */
 	public function transactionCommit($toSavepoint = false)
@@ -782,7 +789,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  void
 	 *
-	 * @since   12.2
+	 * @since   3.0.1
 	 * @throws  RuntimeException
 	 */
 	public function transactionRollback($toSavepoint = false)
@@ -815,7 +822,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  void
 	 *
-	 * @since   12.2
+	 * @since   3.0.1
 	 * @throws  RuntimeException
 	 */
 	public function transactionStart($asSavepoint = false)
@@ -848,7 +855,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  mixed  Either the next row from the result set or false if there are no more rows.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	protected function fetchArray($cursor = null)
 	{
@@ -862,7 +869,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  mixed  Either the next row from the result set or false if there are no more rows.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	protected function fetchAssoc($cursor = null)
 	{
@@ -877,7 +884,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  mixed   Either the next row from the result set or false if there are no more rows.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	protected function fetchObject($cursor = null, $class = 'stdClass')
 	{
@@ -891,7 +898,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  void
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 */
 	protected function freeResult($cursor = null)
 	{
@@ -908,7 +915,7 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	 *
 	 * @return  JDatabaseDriverMysqli  Returns this object to support chaining.
 	 *
-	 * @since   12.1
+	 * @since   3.0.0
 	 * @throws  RuntimeException
 	 */
 	public function unlockTables()
@@ -952,16 +959,24 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	private function serverClaimsUtf8mb4Support()
 	{
 		$client_version = mysqli_get_client_info();
+		$server_version = $this->getVersion();
 
-		if (strpos($client_version, 'mysqlnd') !== false)
+		if (version_compare($server_version, '5.5.3', '<'))
 		{
-			$client_version = preg_replace('/^\D+([\d.]+).*/', '$1', $client_version);
-
-			return version_compare($client_version, '5.0.9', '>=');
+			return false;
 		}
 		else
 		{
-			return version_compare($client_version, '5.5.3', '>=');
+			if (strpos($client_version, 'mysqlnd') !== false)
+			{
+				$client_version = preg_replace('/^\D+([\d.]+).*/', '$1', $client_version);
+
+				return version_compare($client_version, '5.0.9', '>=');
+			}
+			else
+			{
+				return version_compare($client_version, '5.5.3', '>=');
+			}
 		}
 	}
 
@@ -980,13 +995,11 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 	/**
 	 * Return the actual SQL Error message
 	 *
-	 * @param   string  $query  The SQL Query that fails
-	 *
 	 * @return  string  The SQL Error message
 	 *
 	 * @since   3.4.6
 	 */
-	protected function getErrorMessage($query)
+	protected function getErrorMessage()
 	{
 		$errorMessage = (string) mysqli_error($this->connection);
 
@@ -994,9 +1007,8 @@ class JDatabaseDriverMysqli extends JDatabaseDriver
 		if (!$this->debug)
 		{
 			$errorMessage = str_replace($this->tablePrefix, '#__', $errorMessage);
-			$query        = str_replace($this->tablePrefix, '#__', $query);
 		}
 
-		return $errorMessage . ' SQL=' . $query;
+		return $errorMessage;
 	}
 }

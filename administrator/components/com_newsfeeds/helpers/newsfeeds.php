@@ -3,7 +3,7 @@
  * @package     Joomla.Administrator
  * @subpackage  com_newsfeeds
  *
- * @copyright   Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -43,31 +43,47 @@ class NewsfeedsHelper extends JHelperContent
 	/**
 	 * Adds Count Items for Category Manager.
 	 *
-	 * @param   JDatabaseQuery  $query  The query object of com_categories
+	 * @param   stdClass[]  &$items  The category objects
 	 *
-	 * @return  JDatabaseQuery
+	 * @return  stdClass[]
 	 *
-	 * @since   3.4
+	 * @since   3.5
 	 */
-	public static function countItems($query)
+	public static function countItems(&$items)
 	{
-		// Join articles to categories and count published items
-		$query->select('COUNT(DISTINCT cp.id) AS count_published');
-		$query->join('LEFT', '#__newsfeeds AS cp ON cp.catid = a.id AND cp.published = 1');
+		$config = (object) array(
+			'related_tbl'   => 'newsfeeds',
+			'state_col'     => 'published',
+			'group_col'     => 'catid',
+			'relation_type' => 'category_or_group',
+		);
 
-		// Count unpublished items
-		$query->select('COUNT(DISTINCT cu.id) AS count_unpublished');
-		$query->join('LEFT', '#__newsfeeds AS cu ON cu.catid = a.id AND cu.published = 0');
-
-		// Count archived items
-		$query->select('COUNT(DISTINCT ca.id) AS count_archived');
-		$query->join('LEFT', '#__newsfeeds AS ca ON ca.catid = a.id AND ca.published = 2');
-
-		// Count trashed items
-		$query->select('COUNT(DISTINCT ct.id) AS count_trashed');
-		$query->join('LEFT', '#__newsfeeds AS ct ON ct.catid = a.id AND ct.published = -2');
-
-		return $query;
+		return parent::countRelations($items, $config);
 	}
 
+	/**
+	 * Adds Count Items for Tag Manager.
+	 *
+	 * @param   stdClass[]  &$items     The tag objects
+	 * @param   string      $extension  The name of the active view.
+	 *
+	 * @return  stdClass[]
+	 *
+	 * @since   3.6
+	 */
+	public static function countTagItems(&$items, $extension)
+	{
+		$parts   = explode('.', $extension);
+		$section = count($parts) > 1 ? $parts[1] : null;
+
+		$config = (object) array(
+			'related_tbl'   => ($section === 'category' ? 'categories' : 'newsfeeds'),
+			'state_col'     => 'published',
+			'group_col'     => 'tag_id',
+			'extension'     => $extension,
+			'relation_type' => 'tag_assigments',
+		);
+
+		return parent::countRelations($items, $config);
+	}
 }

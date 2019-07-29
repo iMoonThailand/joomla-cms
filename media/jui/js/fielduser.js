@@ -1,5 +1,5 @@
 /**
- * @copyright   Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -109,10 +109,16 @@
 		});
 	};
 
-	// Initialise all defaults
-	$(document).ready(function(){
-		$('.field-user-wrapper').fieldUser();
-	});
+	// Initialise all defaults on load and again when subform rows are added
+	$(function($) {
+		initUserField();
+		$(document).on('subform-row-add', initUserField);
+
+		function initUserField (event, container)
+		{
+			$(container || document).find('.field-user-wrapper').fieldUser();
+		}
+ 	});
 
 })(jQuery);
 
@@ -123,7 +129,7 @@ function jSelectUser(element) {
 		name  = $el.data('user-name'),
 		fieldId = $el.data('user-field'),
 		$inputValue = jQuery('#' + fieldId + '_id'),
-		$inputName  = jQuery('#' + fieldId + '_name');
+		$inputName  = jQuery('#' + fieldId);
 
 	if (!$inputValue.length) {
 		// The input not found

@@ -3,8 +3,8 @@
  * @package     Joomla.UnitTest
  * @subpackage  Model
  *
- * @copyright   Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
- * @license     GNU General Public License version 2 or later; see LICENSE
+ * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 /**
@@ -13,12 +13,12 @@
  * @package     Joomla.UnitTest
  * @subpackage  Model
  *
- * @since       12.3
+ * @since       3.1.4
  */
 class ListModelExceptionTest extends JModelList
 {
 	/**
-	 * throws a Exception for testing purposes
+	 * throws an Exception for testing purposes
 	 *
 	 * @param   string   $query       The query.
 	 * @param   integer  $limitstart  Offset.

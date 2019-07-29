@@ -3,7 +3,7 @@
  * @package     Joomla.Administrator
  * @subpackage  com_messages
  *
- * @copyright   Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
@@ -27,20 +27,23 @@ class MessagesViewMessages extends JViewLegacy
 	 *
 	 * @param   string  $tpl  The name of the template file to parse; automatically searches through the template paths.
 	 *
-	 * @return  mixed  A string if successful, otherwise a Error object.
+	 * @return  mixed  A string if successful, otherwise an Error object.
 	 *
 	 * @since   1.6
 	 */
 	public function display($tpl = null)
 	{
-		$this->items      = $this->get('Items');
-		$this->pagination = $this->get('Pagination');
-		$this->state      = $this->get('State');
+		$this->items         = $this->get('Items');
+		$this->pagination    = $this->get('Pagination');
+		$this->state         = $this->get('State');
+		$this->filterForm    = $this->get('FilterForm');
+		$this->activeFilters = $this->get('ActiveFilters');
 
 		// Check for errors.
 		if (count($errors = $this->get('Errors')))
 		{
 			JError::raiseError(500, implode("\n", $errors));
+
 			return false;
 		}
 
@@ -87,10 +90,10 @@ class MessagesViewMessages extends JViewLegacy
 			0,
 			'',
 			'',
-			'<button class="btn" type="button" data-dismiss="modal" aria-hidden="true">'
+			'<button type="button" class="btn" data-dismiss="modal">'
 			. JText::_('JCANCEL')
 			. '</button>'
-			. '<button class="btn btn-success" type="button" data-dismiss="modal" aria-hidden="true"'
+			. '<button type="button" class="btn btn-success" data-dismiss="modal"'
 			. ' onclick="jQuery(\'#modal-cog iframe\').contents().find(\'#saveBtn\').click();">'
 			. JText::_('JSAVE')
 			. '</button>'
@@ -99,7 +102,7 @@ class MessagesViewMessages extends JViewLegacy
 		if ($state->get('filter.state') == -2 && $canDo->get('core.delete'))
 		{
 			JToolbarHelper::divider();
-			JToolbarHelper::deleteList('', 'messages.delete', 'JTOOLBAR_EMPTY_TRASH');
+			JToolbarHelper::deleteList('JGLOBAL_CONFIRM_DELETE', 'messages.delete', 'JTOOLBAR_EMPTY_TRASH');
 		}
 		elseif ($canDo->get('core.edit.state'))
 		{

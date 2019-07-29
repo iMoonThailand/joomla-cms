@@ -2,7 +2,7 @@
 /**
  * Part of the Joomla Framework String Package
  *
- * @copyright  Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE
  */
 
@@ -16,7 +16,7 @@ if (version_compare(PHP_VERSION, '5.6', '>='))
 else
 {
 	// Check if mbstring extension is loaded and attempt to load it if not present except for windows
-	if (extension_loaded('mbstring'))
+	if (\extension_loaded('mbstring'))
 	{
 		@ini_set('mbstring.internal_encoding', 'UTF-8');
 		@ini_set('mbstring.http_input', 'UTF-8');
@@ -24,7 +24,7 @@ else
 	}
 
 	// Same for iconv
-	if (function_exists('iconv'))
+	if (\function_exists('iconv'))
 	{
 		iconv_set_encoding('internal_encoding', 'UTF-8');
 		iconv_set_encoding('input_encoding', 'UTF-8');
@@ -33,22 +33,7 @@ else
 }
 
 /**
- * Include the utf8 package
- */
-if (!defined('UTF8'))
-{
-	require_once __DIR__ . '/phputf8/utf8.php';
-}
-
-if (!function_exists('utf8_strcasecmp'))
-{
-	require_once __DIR__ . '/phputf8/strcasecmp.php';
-}
-
-/**
- * String handling class for utf-8 data
- * Wraps the phputf8 library
- * All functions assume the validity of utf-8 strings.
+ * String handling class for UTF-8 data wrapping the phputf8 library. All functions assume the validity of UTF-8 strings.
  *
  * @since  1.3.0
  */
@@ -63,7 +48,7 @@ abstract class StringHelper
 	protected static $incrementStyles = array(
 		'dash' => array(
 			'#-(\d+)$#',
-			'-%d'
+			'-%d',
 		),
 		'default' => array(
 			array('#\((\d+)\)$#', '#\(\d+\)$#'),
@@ -89,12 +74,12 @@ abstract class StringHelper
 	 */
 	public static function increment($string, $style = 'default', $n = 0)
 	{
-		$styleSpec = isset(self::$incrementStyles[$style]) ? self::$incrementStyles[$style] : self::$incrementStyles['default'];
+		$styleSpec = isset(static::$incrementStyles[$style]) ? static::$incrementStyles[$style] : static::$incrementStyles['default'];
 
 		// Regular expression search and replace patterns.
-		if (is_array($styleSpec[0]))
+		if (\is_array($styleSpec[0]))
 		{
-			$rxSearch = $styleSpec[0][0];
+			$rxSearch  = $styleSpec[0][0];
 			$rxReplace = $styleSpec[0][1];
 		}
 		else
@@ -103,7 +88,7 @@ abstract class StringHelper
 		}
 
 		// New and old (existing) sprintf formats.
-		if (is_array($styleSpec[1]))
+		if (\is_array($styleSpec[1]))
 		{
 			$newFormat = $styleSpec[1][0];
 			$oldFormat = $styleSpec[1][1];
@@ -116,7 +101,7 @@ abstract class StringHelper
 		// Check if we are incrementing an existing pattern, or appending a new one.
 		if (preg_match($rxSearch, $string, $matches))
 		{
-			$n = empty($n) ? ($matches[1] + 1) : $n;
+			$n      = empty($n) ? ($matches[1] + 1) : $n;
 			$string = preg_replace($rxReplace, sprintf($oldFormat, $n), $string);
 		}
 		else
@@ -130,19 +115,19 @@ abstract class StringHelper
 
 	/**
 	 * Tests whether a string contains only 7bit ASCII bytes.
-	 * You might use this to conditionally check whether a string
-	 * needs handling as UTF-8 or not, potentially offering performance
+	 *
+	 * You might use this to conditionally check whether a string needs handling as UTF-8 or not, potentially offering performance
 	 * benefits by using the native PHP equivalent if it's just ASCII e.g.;
 	 *
 	 * <code>
-	 * if (String::is_ascii($someString))
+	 * if (StringHelper::is_ascii($someString))
 	 * {
 	 *     // It's just ASCII - use the native PHP version
 	 *     $someString = strtolower($someString);
 	 * }
 	 * else
 	 * {
-	 *     $someString = String::strtolower($someString);
+	 *     $someString = StringHelper::strtolower($someString);
 	 * }
 	 * </code>
 	 *
@@ -154,16 +139,28 @@ abstract class StringHelper
 	 */
 	public static function is_ascii($str)
 	{
-		if (!function_exists('utf8_is_ascii'))
-		{
-			require_once __DIR__ . '/phputf8/utils/ascii.php';
-		}
-
 		return utf8_is_ascii($str);
 	}
 
 	/**
-	 * UTF-8 aware alternative to strpos.
+	 * UTF-8 aware alternative to ord()
+	 *
+	 * Returns the unicode ordinal for a character.
+	 *
+	 * @param   string  $chr  UTF-8 encoded character
+	 *
+	 * @return  integer Unicode ordinal for the character
+	 *
+	 * @link    https://www.php.net/ord
+	 * @since   1.4.0
+	 */
+	public static function ord($chr)
+	{
+		return utf8_ord($chr);
+	}
+
+	/**
+	 * UTF-8 aware alternative to strpos()
 	 *
 	 * Find position of first occurrence of a string.
 	 *
@@ -171,9 +168,9 @@ abstract class StringHelper
 	 * @param   string   $search  String being searched for
 	 * @param   integer  $offset  Optional, specifies the position from which the search should be performed
 	 *
-	 * @return  mixed  Number of characters before the first match or FALSE on failure
+	 * @return  integer|boolean  Number of characters before the first match or FALSE on failure
 	 *
-	 * @see     http://www.php.net/strpos
+	 * @link    https://www.php.net/strpos
 	 * @since   1.3.0
 	 */
 	public static function strpos($str, $search, $offset = false)
@@ -187,16 +184,17 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware alternative to strrpos
-	 * Finds position of last occurrence of a string
+	 * UTF-8 aware alternative to strrpos()
+	 *
+	 * Finds position of last occurrence of a string.
 	 *
 	 * @param   string   $str     String being examined.
 	 * @param   string   $search  String being searched for.
 	 * @param   integer  $offset  Offset from the left of the string.
 	 *
-	 * @return  mixed  Number of characters before the last match or false on failure
+	 * @return  integer|boolean  Number of characters before the last match or false on failure
 	 *
-	 * @see     http://www.php.net/strrpos
+	 * @link    https://www.php.net/strrpos
 	 * @since   1.3.0
 	 */
 	public static function strrpos($str, $search, $offset = 0)
@@ -205,16 +203,17 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware alternative to substr
-	 * Return part of a string given character offset (and optionally length)
+	 * UTF-8 aware alternative to substr()
+	 *
+	 * Return part of a string given character offset (and optionally length).
 	 *
 	 * @param   string   $str     String being processed
 	 * @param   integer  $offset  Number of UTF-8 characters offset (from left)
 	 * @param   integer  $length  Optional length in UTF-8 characters from offset
 	 *
-	 * @return  mixed string or FALSE if failure
+	 * @return  string|boolean
 	 *
-	 * @see     http://www.php.net/substr
+	 * @link    https://www.php.net/substr
 	 * @since   1.3.0
 	 */
 	public static function substr($str, $offset, $length = false)
@@ -228,19 +227,18 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware alternative to strtlower
+	 * UTF-8 aware alternative to strtolower()
 	 *
 	 * Make a string lowercase
-	 * Note: The concept of a characters "case" only exists is some alphabets
-	 * such as Latin, Greek, Cyrillic, Armenian and archaic Georgian - it does
-	 * not exist in the Chinese alphabet, for example. See Unicode Standard
-	 * Annex #21: Case Mappings
+	 *
+	 * Note: The concept of a characters "case" only exists is some alphabets such as Latin, Greek, Cyrillic, Armenian and archaic Georgian - it does
+	 * not exist in the Chinese alphabet, for example. See Unicode Standard Annex #21: Case Mappings
 	 *
 	 * @param   string  $str  String being processed
 	 *
-	 * @return  mixed  Either string in lowercase or FALSE is UTF-8 invalid
+	 * @return  string|boolean  Either string in lowercase or FALSE is UTF-8 invalid
 	 *
-	 * @see http://www.php.net/strtolower
+	 * @link    https://www.php.net/strtolower
 	 * @since   1.3.0
 	 */
 	public static function strtolower($str)
@@ -249,18 +247,18 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware alternative to strtoupper
+	 * UTF-8 aware alternative to strtoupper()
+	 *
 	 * Make a string uppercase
-	 * Note: The concept of a characters "case" only exists is some alphabets
-	 * such as Latin, Greek, Cyrillic, Armenian and archaic Georgian - it does
-	 * not exist in the Chinese alphabet, for example. See Unicode Standard
-	 * Annex #21: Case Mappings
+	 *
+	 * Note: The concept of a characters "case" only exists is some alphabets such as Latin, Greek, Cyrillic, Armenian and archaic Georgian - it does
+	 * not exist in the Chinese alphabet, for example. See Unicode Standard Annex #21: Case Mappings
 	 *
 	 * @param   string  $str  String being processed
 	 *
-	 * @return  mixed  Either string in uppercase or FALSE is UTF-8 invalid
+	 * @return  string|boolean  Either string in uppercase or FALSE is UTF-8 invalid
 	 *
-	 * @see     http://www.php.net/strtoupper
+	 * @link    https://www.php.net/strtoupper
 	 * @since   1.3.0
 	 */
 	public static function strtoupper($str)
@@ -269,15 +267,15 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware alternative to strlen.
+	 * UTF-8 aware alternative to strlen()
 	 *
-	 * Returns the number of characters in the string (NOT THE NUMBER OF BYTES),
+	 * Returns the number of characters in the string (NOT THE NUMBER OF BYTES).
 	 *
 	 * @param   string  $str  UTF-8 string.
 	 *
 	 * @return  integer  Number of UTF-8 characters in string.
 	 *
-	 * @see http://www.php.net/strlen
+	 * @link    https://www.php.net/strlen
 	 * @since   1.3.0
 	 */
 	public static function strlen($str)
@@ -286,8 +284,9 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware alternative to str_ireplace
-	 * Case-insensitive version of str_replace
+	 * UTF-8 aware alternative to str_ireplace()
+	 *
+	 * Case-insensitive version of str_replace()
 	 *
 	 * @param   string   $search   String to search
 	 * @param   string   $replace  Existing string to replace
@@ -296,16 +295,11 @@ abstract class StringHelper
 	 *
 	 * @return  string  UTF-8 String
 	 *
-	 * @see     http://www.php.net/str_ireplace
+	 * @link    https://www.php.net/str_ireplace
 	 * @since   1.3.0
 	 */
 	public static function str_ireplace($search, $replace, $str, $count = null)
 	{
-		if (!function_exists('utf8_ireplace'))
-		{
-			require_once __DIR__ . '/phputf8/str_ireplace.php';
-		}
-
 		if ($count === false)
 		{
 			return utf8_ireplace($search, $replace, $str);
@@ -315,30 +309,48 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware alternative to str_split
-	 * Convert a string to an array
+	 * UTF-8 aware alternative to str_pad()
 	 *
-	 * @param   string   $str        UTF-8 encoded string to process
-	 * @param   integer  $split_len  Number to characters to split string by
+	 * Pad a string to a certain length with another string.
+	 * $padStr may contain multi-byte characters.
 	 *
-	 * @return  array
+	 * @param   string   $input   The input string.
+	 * @param   integer  $length  If the value is negative, less than, or equal to the length of the input string, no padding takes place.
+	 * @param   string   $padStr  The string may be truncated if the number of padding characters can't be evenly divided by the string's length.
+	 * @param   integer  $type    The type of padding to apply
 	 *
-	 * @see     http://www.php.net/str_split
-	 * @since   1.3.0
+	 * @return  string
+	 *
+	 * @link    https://www.php.net/str_pad
+	 * @since   1.4.0
 	 */
-	public static function str_split($str, $split_len = 1)
+	public static function str_pad($input, $length, $padStr = ' ', $type = STR_PAD_RIGHT)
 	{
-		if (!function_exists('utf8_str_split'))
-		{
-			require_once __DIR__ . '/phputf8/str_split.php';
-		}
-
-		return utf8_str_split($str, $split_len);
+		return utf8_str_pad($input, $length, $padStr, $type);
 	}
 
 	/**
-	 * UTF-8/LOCALE aware alternative to strcasecmp
-	 * A case insensitive string comparison
+	 * UTF-8 aware alternative to str_split()
+	 *
+	 * Convert a string to an array.
+	 *
+	 * @param   string   $str       UTF-8 encoded string to process
+	 * @param   integer  $splitLen  Number to characters to split string by
+	 *
+	 * @return  array
+	 *
+	 * @link    https://www.php.net/str_split
+	 * @since   1.3.0
+	 */
+	public static function str_split($str, $splitLen = 1)
+	{
+		return utf8_str_split($str, $splitLen);
+	}
+
+	/**
+	 * UTF-8/LOCALE aware alternative to strcasecmp()
+	 *
+	 * A case insensitive string comparison.
 	 *
 	 * @param   string  $str1    string 1 to compare
 	 * @param   string  $str2    string 2 to compare
@@ -346,9 +358,9 @@ abstract class StringHelper
 	 *
 	 * @return  integer   < 0 if str1 is less than str2; > 0 if str1 is greater than str2, and 0 if they are equal.
 	 *
-	 * @see     http://www.php.net/strcasecmp
-	 * @see     http://www.php.net/strcoll
-	 * @see     http://www.php.net/setlocale
+	 * @link    https://www.php.net/strcasecmp
+	 * @link    https://www.php.net/strcoll
+	 * @link    https://www.php.net/setlocale
 	 * @since   1.3.0
 	 */
 	public static function strcasecmp($str1, $str2, $locale = false)
@@ -384,8 +396,8 @@ abstract class StringHelper
 			}
 
 			return strcoll(
-				self::transcode(utf8_strtolower($str1), 'UTF-8', $encoding),
-				self::transcode(utf8_strtolower($str2), 'UTF-8', $encoding)
+				static::transcode(utf8_strtolower($str1), 'UTF-8', $encoding),
+				static::transcode(utf8_strtolower($str2), 'UTF-8', $encoding)
 			);
 		}
 
@@ -393,8 +405,9 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8/LOCALE aware alternative to strcmp
-	 * A case sensitive string comparison
+	 * UTF-8/LOCALE aware alternative to strcmp()
+	 *
+	 * A case sensitive string comparison.
 	 *
 	 * @param   string  $str1    string 1 to compare
 	 * @param   string  $str2    string 2 to compare
@@ -402,9 +415,9 @@ abstract class StringHelper
 	 *
 	 * @return  integer  < 0 if str1 is less than str2; > 0 if str1 is greater than str2, and 0 if they are equal.
 	 *
-	 * @see     http://www.php.net/strcmp
-	 * @see     http://www.php.net/strcoll
-	 * @see     http://www.php.net/setlocale
+	 * @link    https://www.php.net/strcmp
+	 * @link    https://www.php.net/strcoll
+	 * @link    https://www.php.net/setlocale
 	 * @since   1.3.0
 	 */
 	public static function strcmp($str1, $str2, $locale = false)
@@ -439,15 +452,16 @@ abstract class StringHelper
 				return strcoll($str1, $str2);
 			}
 
-			return strcoll(self::transcode($str1, 'UTF-8', $encoding), self::transcode($str2, 'UTF-8', $encoding));
+			return strcoll(static::transcode($str1, 'UTF-8', $encoding), static::transcode($str2, 'UTF-8', $encoding));
 		}
 
 		return strcmp($str1, $str2);
 	}
 
 	/**
-	 * UTF-8 aware alternative to strcspn
-	 * Find length of initial segment not matching mask
+	 * UTF-8 aware alternative to strcspn()
+	 *
+	 * Find length of initial segment not matching mask.
 	 *
 	 * @param   string   $str     The string to process
 	 * @param   string   $mask    The mask
@@ -456,16 +470,11 @@ abstract class StringHelper
 	 *
 	 * @return  integer  The length of the initial segment of str1 which does not contain any of the characters in str2
 	 *
-	 * @see     http://www.php.net/strcspn
+	 * @link    https://www.php.net/strcspn
 	 * @since   1.3.0
 	 */
 	public static function strcspn($str, $mask, $start = null, $length = null)
 	{
-		if (!function_exists('utf8_strcspn'))
-		{
-			require_once __DIR__ . '/phputf8/strcspn.php';
-		}
-
 		if ($start === false && $length === false)
 		{
 			return utf8_strcspn($str, $mask);
@@ -480,53 +489,45 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware alternative to stristr
-	 * Returns all of haystack from the first occurrence of needle to the end.
-	 * needle and haystack are examined in a case-insensitive manner
-	 * Find first occurrence of a string using case insensitive comparison
+	 * UTF-8 aware alternative to stristr()
+	 *
+	 * Returns all of haystack from the first occurrence of needle to the end. Needle and haystack are examined in a case-insensitive manner to
+	 * find the first occurrence of a string using case insensitive comparison.
 	 *
 	 * @param   string  $str     The haystack
 	 * @param   string  $search  The needle
 	 *
 	 * @return string the sub string
 	 *
-	 * @see     http://www.php.net/stristr
+	 * @link    https://www.php.net/stristr
 	 * @since   1.3.0
 	 */
 	public static function stristr($str, $search)
 	{
-		if (!function_exists('utf8_stristr'))
-		{
-			require_once __DIR__ . '/phputf8/stristr.php';
-		}
-
 		return utf8_stristr($str, $search);
 	}
 
 	/**
-	 * UTF-8 aware alternative to strrev
-	 * Reverse a string
+	 * UTF-8 aware alternative to strrev()
+	 *
+	 * Reverse a string.
 	 *
 	 * @param   string  $str  String to be reversed
 	 *
 	 * @return  string   The string in reverse character order
 	 *
-	 * @see     http://www.php.net/strrev
+	 * @link    https://www.php.net/strrev
 	 * @since   1.3.0
 	 */
 	public static function strrev($str)
 	{
-		if (!function_exists('utf8_strrev'))
-		{
-			require_once __DIR__ . '/phputf8/strrev.php';
-		}
-
 		return utf8_strrev($str);
 	}
 
 	/**
-	 * UTF-8 aware alternative to strspn
-	 * Find length of initial segment matching mask
+	 * UTF-8 aware alternative to strspn()
+	 *
+	 * Find length of initial segment matching mask.
 	 *
 	 * @param   string   $str     The haystack
 	 * @param   string   $mask    The mask
@@ -535,16 +536,11 @@ abstract class StringHelper
 	 *
 	 * @return  integer
 	 *
-	 * @see     http://www.php.net/strspn
+	 * @link    https://www.php.net/strspn
 	 * @since   1.3.0
 	 */
 	public static function strspn($str, $mask, $start = null, $length = null)
 	{
-		if (!function_exists('utf8_strspn'))
-		{
-			require_once __DIR__ . '/phputf8/strspn.php';
-		}
-
 		if ($start === null && $length === null)
 		{
 			return utf8_strspn($str, $mask);
@@ -559,8 +555,9 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware substr_replace
-	 * Replace text within a portion of a string
+	 * UTF-8 aware alternative to substr_replace()
+	 *
+	 * Replace text within a portion of a string.
 	 *
 	 * @param   string   $str     The haystack
 	 * @param   string   $repl    The replacement string
@@ -569,7 +566,7 @@ abstract class StringHelper
 	 *
 	 * @return  string
 	 *
-	 * @see     http://www.php.net/substr_replace
+	 * @link    https://www.php.net/substr_replace
 	 * @since   1.3.0
 	 */
 	public static function substr_replace($str, $repl, $start, $length = null)
@@ -586,17 +583,15 @@ abstract class StringHelper
 	/**
 	 * UTF-8 aware replacement for ltrim()
 	 *
-	 * Strip whitespace (or other characters) from the beginning of a string
-	 * You only need to use this if you are supplying the charlist
-	 * optional arg and it contains UTF-8 characters. Otherwise ltrim will
-	 * work normally on a UTF-8 string
+	 * Strip whitespace (or other characters) from the beginning of a string. You only need to use this if you are supplying the charlist
+	 * optional arg and it contains UTF-8 characters. Otherwise ltrim will work normally on a UTF-8 string.
 	 *
 	 * @param   string  $str       The string to be trimmed
 	 * @param   string  $charlist  The optional charlist of additional characters to trim
 	 *
 	 * @return  string  The trimmed string
 	 *
-	 * @see     http://www.php.net/ltrim
+	 * @link    https://www.php.net/ltrim
 	 * @since   1.3.0
 	 */
 	public static function ltrim($str, $charlist = false)
@@ -604,11 +599,6 @@ abstract class StringHelper
 		if (empty($charlist) && $charlist !== false)
 		{
 			return $str;
-		}
-
-		if (!function_exists('utf8_ltrim'))
-		{
-			require_once __DIR__ . '/phputf8/trim.php';
 		}
 
 		if ($charlist === false)
@@ -621,17 +611,16 @@ abstract class StringHelper
 
 	/**
 	 * UTF-8 aware replacement for rtrim()
-	 * Strip whitespace (or other characters) from the end of a string
-	 * You only need to use this if you are supplying the charlist
-	 * optional arg and it contains UTF-8 characters. Otherwise rtrim will
-	 * work normally on a UTF-8 string
+	 *
+	 * Strip whitespace (or other characters) from the end of a string. You only need to use this if you are supplying the charlist
+	 * optional arg and it contains UTF-8 characters. Otherwise rtrim will work normally on a UTF-8 string.
 	 *
 	 * @param   string  $str       The string to be trimmed
 	 * @param   string  $charlist  The optional charlist of additional characters to trim
 	 *
 	 * @return  string  The trimmed string
 	 *
-	 * @see     http://www.php.net/rtrim
+	 * @link    https://www.php.net/rtrim
 	 * @since   1.3.0
 	 */
 	public static function rtrim($str, $charlist = false)
@@ -639,11 +628,6 @@ abstract class StringHelper
 		if (empty($charlist) && $charlist !== false)
 		{
 			return $str;
-		}
-
-		if (!function_exists('utf8_rtrim'))
-		{
-			require_once __DIR__ . '/phputf8/trim.php';
 		}
 
 		if ($charlist === false)
@@ -656,17 +640,16 @@ abstract class StringHelper
 
 	/**
 	 * UTF-8 aware replacement for trim()
-	 * Strip whitespace (or other characters) from the beginning and end of a string
-	 * Note: you only need to use this if you are supplying the charlist
-	 * optional arg and it contains UTF-8 characters. Otherwise trim will
-	 * work normally on a UTF-8 string
+	 *
+	 * Strip whitespace (or other characters) from the beginning and end of a string. You only need to use this if you are supplying the charlist
+	 * optional arg and it contains UTF-8 characters. Otherwise trim will work normally on a UTF-8 string
 	 *
 	 * @param   string  $str       The string to be trimmed
 	 * @param   string  $charlist  The optional charlist of additional characters to trim
 	 *
 	 * @return  string  The trimmed string
 	 *
-	 * @see     http://www.php.net/trim
+	 * @link    https://www.php.net/trim
 	 * @since   1.3.0
 	 */
 	public static function trim($str, $charlist = false)
@@ -674,11 +657,6 @@ abstract class StringHelper
 		if (empty($charlist) && $charlist !== false)
 		{
 			return $str;
-		}
-
-		if (!function_exists('utf8_trim'))
-		{
-			require_once __DIR__ . '/phputf8/trim.php';
 		}
 
 		if ($charlist === false)
@@ -690,8 +668,9 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware alternative to ucfirst
-	 * Make a string's first character uppercase or all words' first character uppercase
+	 * UTF-8 aware alternative to ucfirst()
+	 *
+	 * Make a string's first character uppercase or all words' first character uppercase.
 	 *
 	 * @param   string  $str           String to be processed
 	 * @param   string  $delimiter     The words delimiter (null means do not split the string)
@@ -701,16 +680,11 @@ abstract class StringHelper
 	 *                  else consider the string of words separated by the delimiter, apply the ucfirst to each words
 	 *                  and return the string with the new delimiter
 	 *
-	 * @see     http://www.php.net/ucfirst
+	 * @link    https://www.php.net/ucfirst
 	 * @since   1.3.0
 	 */
 	public static function ucfirst($str, $delimiter = null, $newDelimiter = null)
 	{
-		if (!function_exists('utf8_ucfirst'))
-		{
-			require_once __DIR__ . '/phputf8/ucfirst.php';
-		}
-
 		if ($delimiter === null)
 		{
 			return utf8_ucfirst($str);
@@ -725,32 +699,28 @@ abstract class StringHelper
 	}
 
 	/**
-	 * UTF-8 aware alternative to ucwords
-	 * Uppercase the first character of each word in a string
+	 * UTF-8 aware alternative to ucwords()
+	 *
+	 * Uppercase the first character of each word in a string.
 	 *
 	 * @param   string  $str  String to be processed
 	 *
 	 * @return  string  String with first char of each word uppercase
 	 *
-	 * @see     http://www.php.net/ucwords
+	 * @link    https://www.php.net/ucwords
 	 * @since   1.3.0
 	 */
 	public static function ucwords($str)
 	{
-		if (!function_exists('utf8_ucwords'))
-		{
-			require_once __DIR__ . '/phputf8/ucwords.php';
-		}
-
 		return utf8_ucwords($str);
 	}
 
 	/**
 	 * Transcode a string.
 	 *
-	 * @param   string  $source         The string to transcode.
-	 * @param   string  $from_encoding  The source encoding.
-	 * @param   string  $to_encoding    The target encoding.
+	 * @param   string  $source        The string to transcode.
+	 * @param   string  $fromEncoding  The source encoding.
+	 * @param   string  $toEncoding    The target encoding.
 	 *
 	 * @return  mixed  The transcoded string, or null if the source was not a string.
 	 *
@@ -758,22 +728,20 @@ abstract class StringHelper
 	 *
 	 * @since   1.3.0
 	 */
-	public static function transcode($source, $from_encoding, $to_encoding)
+	public static function transcode($source, $fromEncoding, $toEncoding)
 	{
-		if (is_string($source))
+		if (\is_string($source))
 		{
 			switch (ICONV_IMPL)
 			{
 				case 'glibc':
-					return @iconv($from_encoding, $to_encoding . '//TRANSLIT,IGNORE', $source);
+					return @iconv($fromEncoding, $toEncoding . '//TRANSLIT,IGNORE', $source);
 
 				case 'libiconv':
 				default:
-					return iconv($from_encoding, $to_encoding . '//IGNORE//TRANSLIT', $source);
+					return iconv($fromEncoding, $toEncoding . '//IGNORE//TRANSLIT', $source);
 			}
 		}
-
-		return null;
 	}
 
 	/**
@@ -786,51 +754,38 @@ abstract class StringHelper
 	 * @return  boolean  true if valid
 	 *
 	 * @author  <hsivonen@iki.fi>
-	 * @see     http://hsivonen.iki.fi/php-utf8/
+	 * @link    https://hsivonen.fi/php-utf8/
 	 * @see     compliant
 	 * @since   1.3.0
 	 */
 	public static function valid($str)
 	{
-		if (!function_exists('utf8_is_valid'))
-		{
-			require_once __DIR__ . '/phputf8/utils/validation.php';
-		}
-
 		return utf8_is_valid($str);
 	}
 
 	/**
-	 * Tests whether a string complies as UTF-8. This will be much
-	 * faster than utf8_is_valid but will pass five and six octet
-	 * UTF-8 sequences, which are not supported by Unicode and
-	 * so cannot be displayed correctly in a browser. In other words
-	 * it is not as strict as utf8_is_valid but it's faster. If you use
-	 * it to validate user input, you place yourself at the risk that
-	 * attackers will be able to inject 5 and 6 byte sequences (which
-	 * may or may not be a significant risk, depending on what you are
-	 * are doing)
+	 * Tests whether a string complies as UTF-8.
+	 *
+	 * This will be much faster than StringHelper::valid() but will pass five and six octet UTF-8 sequences, which are not supported by Unicode and
+	 * so cannot be displayed correctly in a browser. In other words it is not as strict as StringHelper::valid() but it's faster. If you use it to
+	 * validate user input, you place yourself at the risk that attackers will be able to inject 5 and 6 byte sequences (which may or may not be a
+	 * significant risk, depending on what you are are doing).
 	 *
 	 * @param   string  $str  UTF-8 string to check
 	 *
 	 * @return  boolean  TRUE if string is valid UTF-8
 	 *
-	 * @see     valid
-	 * @see     http://www.php.net/manual/en/reference.pcre.pattern.modifiers.php#54805
+	 * @see     StringHelper::valid
+	 * @link    https://www.php.net/manual/en/reference.pcre.pattern.modifiers.php#54805
 	 * @since   1.3.0
 	 */
 	public static function compliant($str)
 	{
-		if (!function_exists('utf8_compliant'))
-		{
-			require_once __DIR__ . '/phputf8/utils/validation.php';
-		}
-
 		return utf8_compliant($str);
 	}
 
 	/**
-	 * Converts Unicode sequences to UTF-8 string
+	 * Converts Unicode sequences to UTF-8 string.
 	 *
 	 * @param   string  $str  Unicode string to convert
 	 *
@@ -840,7 +795,7 @@ abstract class StringHelper
 	 */
 	public static function unicode_to_utf8($str)
 	{
-		if (extension_loaded('mbstring'))
+		if (\extension_loaded('mbstring'))
 		{
 			return preg_replace_callback(
 				'/\\\\u([0-9a-fA-F]{4})/',
@@ -856,7 +811,7 @@ abstract class StringHelper
 	}
 
 	/**
-	 * Converts Unicode sequences to UTF-16 string
+	 * Converts Unicode sequences to UTF-16 string.
 	 *
 	 * @param   string  $str  Unicode string to convert
 	 *
@@ -866,7 +821,7 @@ abstract class StringHelper
 	 */
 	public static function unicode_to_utf16($str)
 	{
-		if (extension_loaded('mbstring'))
+		if (\extension_loaded('mbstring'))
 		{
 			return preg_replace_callback(
 				'/\\\\u([0-9a-fA-F]{4})/',

@@ -3,8 +3,8 @@
  * @package     Joomla.Administrator
  * @subpackage  com_finder
  *
- * @copyright   Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
- * @license     GNU General Public License version 2 or later; see LICENSE
+ * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 defined('_JEXEC') or die;
@@ -33,17 +33,19 @@ class FinderIndexerParserHtml extends FinderIndexerParser
 	public function parse($input)
 	{
 		// Strip invalid UTF-8 characters.
-		$input = iconv("utf-8", "utf-8//IGNORE", $input);
+		$input = iconv('utf-8', 'utf-8//IGNORE', $input);
 
-		// Convert <style>, <noscript> and <head> tags to <script> tags
+		// Remove anything between <head> and </head> tags.  Do this first
+		// because there might be <script> or <style> tags nested inside.
+		$input = $this->removeBlocks($input, '<head>', '</head>');
+
+		// Convert <style> and <noscript> tags to <script> tags
 		// so we can remove them efficiently.
 		$search = array(
 			'<style', '</style',
 			'<noscript', '</noscript',
-			'<head', '</head',
 		);
 		$replace = array(
-			'<script', '</script',
 			'<script', '</script',
 			'<script', '</script',
 		);
@@ -58,9 +60,14 @@ class FinderIndexerParserHtml extends FinderIndexerParser
 		// Convert entities equivalent to spaces to actual spaces.
 		$input = str_replace(array('&nbsp;', '&#160;'), ' ', $input);
 
-		// This fixes issues such as '<h1>Title</h1><p>Paragraph</p>'
-		// being transformed into 'TitleParagraph' with no space.
-		$input = str_replace('>', '> ', $input);
+		// Add a space before both the OPEN and CLOSE tags of BLOCK and LINE BREAKING elements,
+		// e.g. 'all<h1><em>m</em>obile  List</h1>' will become 'all mobile  List'
+		$input = preg_replace('/(<|<\/)(' .
+			'address|article|aside|blockquote|br|canvas|dd|div|dl|dt|' .
+			'fieldset|figcaption|figure|footer|form|h1|h2|h3|h4|h5|h6|header|hgroup|hr|li|' .
+			'main|nav|noscript|ol|output|p|pre|section|table|tfoot|ul|video' .
+			')\b/i', ' $1$2', $input
+		);
 
 		// Strip HTML tags.
 		$input = strip_tags($input);
@@ -80,9 +87,7 @@ class FinderIndexerParserHtml extends FinderIndexerParser
 	protected function process($input)
 	{
 		// Replace any amount of white space with a single space.
-		$input = preg_replace('#\s+#u', ' ', $input);
-
-		return $input;
+		return preg_replace('#\s+#u', ' ', $input);
 	}
 
 	/**
@@ -98,11 +103,12 @@ class FinderIndexerParserHtml extends FinderIndexerParser
 	 * @param   string  $endTag    String representing the end tag.
 	 *
 	 * @return  string with blocks removed.
+	 *
+	 * @since   3.4
 	 */
 	private function removeBlocks($input, $startTag, $endTag)
 	{
 		$return = '';
-		$blocks = array();
 		$offset = 0;
 		$startTagLength = strlen($startTag);
 		$endTagLength = strlen($endTag);

@@ -3,8 +3,8 @@
  * @package     Joomla.UnitTest
  * @subpackage  Form
  *
- * @copyright   Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
- * @license     GNU General Public License version 2 or later; see LICENSE
+ * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
+ * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
 require_once JPATH_TESTS . '/stubs/FormInspectors.php';
@@ -16,7 +16,7 @@ include_once 'JFormDataHelper.php';
  *
  * @package     Joomla.UnitTest
  * @subpackage  Form
- * @since       11.1
+ * @since       1.7.0
  */
 class JFormFieldTest extends TestCaseDatabase
 {
@@ -65,10 +65,63 @@ class JFormFieldTest extends TestCaseDatabase
 	protected function tearDown()
 	{
 		$_SERVER = $this->backupServer;
-
+		unset($this->backupServer);
 		$this->restoreFactoryState();
 
 		parent::tearDown();
+	}
+
+	/**
+	 * @test
+	 *
+	 * @return void
+	 */
+	public function getLayoutDataReturnsDefaultLayoutPaths()
+	{
+		$form = new JFormInspector('form1', array('control' => 'jform'));
+
+		$this->assertThat(
+			$form->load(JFormDataHelper::$loadFieldDocument),
+			$this->isTrue(),
+			'Line:' . __LINE__ . ' XML string should load successfully.'
+		);
+
+		$field = new JFormFieldInspector($form);
+
+		$reflection = new \ReflectionClass($field);
+		$method = $reflection->getMethod('getLayoutPaths');
+		$method->setAccessible(true);
+
+		$layoutPaths = $method->invoke($field);
+
+		$this->assertTrue(is_array($layoutPaths));
+		$this->assertTrue(count($layoutPaths) > 0);
+	}
+
+	/**
+	 * @test
+	 *
+	 * @return void
+	 */
+	public function getLayoutPathsCanBeOverriden()
+	{
+		$form = new JFormInspector('form1', array('control' => 'jform'));
+
+		JForm::addFieldPath(__DIR__ . '/_testfields');
+
+		JFormHelper::loadFieldType('customlayouts');
+
+		$field = new JFormFieldCustomlayouts($form);
+
+		$reflection = new \ReflectionClass($field);
+		$method = $reflection->getMethod('getLayoutPaths');
+		$method->setAccessible(true);
+
+		$layoutPaths = $method->invoke($field);
+
+		$this->assertTrue(is_array($layoutPaths));
+		$this->assertTrue(count($layoutPaths) > 0);
+		$this->assertSame(__DIR__ . DIRECTORY_SEPARATOR . '_testfields', $layoutPaths[0]);
 	}
 
 	/**
@@ -210,9 +263,10 @@ class JFormFieldTest extends TestCaseDatabase
 				'id'         => 'title_id-lbl',
 				'tag'        => 'label',
 				'attributes' => array(
-						'for'   => 'title_id',
-						'class' => 'hasTooltip required',
-						'title' => '<strong>Title</strong><br />The title.'
+					'for'          => 'title_id',
+					'class'        => 'hasPopover required',
+					'title'        => 'Title',
+					'data-content' => 'The title.',
 					),
 				'content'    => 'regexp:/Title.*\*/',
 				'child'      => array(
@@ -370,9 +424,10 @@ class JFormFieldTest extends TestCaseDatabase
 				'id'         => 'myId-lbl',
 				'tag'        => 'label',
 				'attributes' => array(
-						'for'   => 'myId',
-						'class' => 'hasTooltip',
-						'title' => '<strong>My Title</strong><br />The description.'
+					'for'          => 'myId',
+					'class'        => 'hasPopover',
+					'title'        => 'My Title',
+					'data-content' => 'The description.',
 					),
 				'content'    => 'regexp:/My Title/'
 			);

@@ -2,7 +2,7 @@
 /**
  * Part of the Joomla Framework Session Package
  *
- * @copyright  Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
+ * @copyright  Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
  * @license    GNU General Public License version 2 or later; see LICENSE
  */
 
@@ -47,7 +47,7 @@ class Session implements \IteratorAggregate
 	 * @var    Storage
 	 * @since  1.0
 	 */
-	protected $store = null;
+	protected $store;
 
 	/**
 	 * Security policy.
@@ -90,6 +90,24 @@ class Session implements \IteratorAggregate
 	protected $cookie_path;
 
 	/**
+	 * The configuration of the HttpOnly cookie.
+	 *
+	 * @var    mixed
+	 * @since  1.5.0
+	 * @deprecated  2.0
+	 */
+	protected $cookie_httponly = true;
+
+	/**
+	 * The configuration of the SameSite cookie.
+	 *
+	 * @var    mixed
+	 * @since  1.5.0
+	 * @deprecated  2.0
+	 */
+	protected $cookie_samesite;
+
+	/**
 	 * Session instances container.
 	 *
 	 * @var    Session
@@ -112,9 +130,8 @@ class Session implements \IteratorAggregate
 	 *
 	 * @var    Input
 	 * @since  1.0
-	 * @deprecated  2.0
 	 */
-	private $input = null;
+	private $input;
 
 	/**
 	 * Holds the Dispatcher object
@@ -122,7 +139,7 @@ class Session implements \IteratorAggregate
 	 * @var    DispatcherInterface
 	 * @since  1.0
 	 */
-	private $dispatcher = null;
+	private $dispatcher;
 
 	/**
 	 * Constructor
@@ -190,9 +207,9 @@ class Session implements \IteratorAggregate
 	 * @since   1.0
 	 * @deprecated  2.0  A singleton object store will no longer be supported
 	 */
-	public static function getInstance($handler, array $options = array ())
+	public static function getInstance($handler, array $options = array())
 	{
-		if (!is_object(self::$instance))
+		if (!\is_object(self::$instance))
 		{
 			self::$instance = new self($handler, $options);
 		}
@@ -244,7 +261,7 @@ class Session implements \IteratorAggregate
 		// Create a token
 		if ($token === null || $forceNew)
 		{
-			$token = $this->_createToken(12);
+			$token = $this->_createToken();
 			$this->set('session.token', $token);
 		}
 
@@ -304,8 +321,8 @@ class Session implements \IteratorAggregate
 	{
 		if ($this->getState() === 'destroyed')
 		{
-			// @TODO : raise error
-			return null;
+			// @codingStandardsIgnoreLine
+			return;
 		}
 
 		return session_name();
@@ -322,7 +339,8 @@ class Session implements \IteratorAggregate
 	{
 		if ($this->getState() === 'destroyed')
 		{
-			return null;
+			// @codingStandardsIgnoreLine
+			return;
 		}
 
 		return session_id();
@@ -434,10 +452,7 @@ class Session implements \IteratorAggregate
 
 		if ($this->getState() !== 'active' && $this->getState() !== 'expired')
 		{
-			// @TODO :: generated error here
-			$error = null;
-
-			return $error;
+			return;
 		}
 
 		if (isset($_SESSION[$namespace][$name]))
@@ -466,13 +481,12 @@ class Session implements \IteratorAggregate
 
 		if ($this->getState() !== 'active')
 		{
-			// @TODO :: generated error here
-			return null;
+			return;
 		}
 
 		$old = isset($_SESSION[$namespace][$name]) ? $_SESSION[$namespace][$name] : null;
 
-		if (null === $value)
+		if ($value === null)
 		{
 			unset($_SESSION[$namespace][$name]);
 		}
@@ -501,8 +515,8 @@ class Session implements \IteratorAggregate
 
 		if ($this->getState() !== 'active')
 		{
-			// @TODO :: generated error here
-			return null;
+			// @codingStandardsIgnoreLine
+			return;
 		}
 
 		return isset($_SESSION[$namespace][$name]);
@@ -526,7 +540,7 @@ class Session implements \IteratorAggregate
 		if ($this->getState() !== 'active')
 		{
 			// @TODO :: generated error here
-			return null;
+			return;
 		}
 
 		$value = null;
@@ -595,14 +609,14 @@ class Session implements \IteratorAggregate
 			// Get the Joomla\Input\Cookie object
 			$cookie = $this->input->cookie;
 
-			if (is_null($cookie->get($session_name)))
+			if ($cookie->get($session_name) === null)
 			{
 				$session_clean = $this->input->get($session_name, false, 'string');
 
 				if ($session_clean)
 				{
 					session_id($session_clean);
-					$cookie->set($session_name, '', time() - 3600);
+					$cookie->set($session_name, '', array('expires' => 1));
 				}
 			}
 		}
@@ -648,10 +662,22 @@ class Session implements \IteratorAggregate
 		 * must also be unset. If a cookie is used to propagate the session id (default behavior),
 		 * then the session cookie must be deleted.
 		 */
-		if (isset($_COOKIE[session_name()]))
+		$cookie = session_get_cookie_params();
+
+		$cookieOptions = array(
+			'expires'  => 1,
+			'path'     => $cookie['path'],
+			'domain'   => $cookie['domain'],
+			'secure'   => $cookie['secure'],
+			'httponly' => true,
+		);
+
+		if (isset($cookie['samesite']))
 		{
-			setcookie(session_name(), '', time() - 42000, $this->cookie_path, $this->cookie_domain);
+			$cookieOptions['samesite'] = $cookie['samesite'];
 		}
+
+		$this->input->cookie->set($this->getName(), '', $cookieOptions);
 
 		session_unset();
 		session_destroy();
@@ -720,7 +746,14 @@ class Session implements \IteratorAggregate
 		$this->store->register();
 
 		// Restore config
-		session_set_cookie_params($cookie['lifetime'], $cookie['path'], $cookie['domain'], $cookie['secure'], true);
+		if (version_compare(PHP_VERSION, '7.3', '>='))
+		{
+			session_set_cookie_params($cookie);
+		}
+		else
+		{
+			session_set_cookie_params($cookie['lifetime'], $cookie['path'], $cookie['domain'], $cookie['secure'], $cookie['httponly']);
+		}
 
 		// Restart session with new id
 		session_regenerate_id(true);
@@ -809,7 +842,21 @@ class Session implements \IteratorAggregate
 			$cookie['path'] = $this->cookie_path;
 		}
 
-		session_set_cookie_params($cookie['lifetime'], $cookie['path'], $cookie['domain'], $cookie['secure'], true);
+		$cookie['httponly'] = $this->cookie_httponly;
+
+		if ($this->cookie_samesite)
+		{
+			$cookie['samesite'] = $this->cookie_samesite;
+		}
+
+		if (version_compare(PHP_VERSION, '7.3', '>='))
+		{
+			session_set_cookie_params($cookie);
+		}
+		else
+		{
+			session_set_cookie_params($cookie['lifetime'], $cookie['path'], $cookie['domain'], $cookie['secure'], $cookie['httponly']);
+		}
 	}
 
 	/**
@@ -820,20 +867,25 @@ class Session implements \IteratorAggregate
 	 * @return  string  Generated token
 	 *
 	 * @since   1.0
+	 * @deprecated  2.0  Use createToken instead
 	 */
 	protected function _createToken($length = 32)
 	{
-		static $chars = '0123456789abcdef';
-		$max = strlen($chars) - 1;
-		$token = '';
-		$name = session_name();
+		return $this->createToken($length);
+	}
 
-		for ($i = 0; $i < $length; ++$i)
-		{
-			$token .= $chars[(rand(0, $max))];
-		}
-
-		return md5($token . $name);
+	/**
+	 * Create a token-string
+	 *
+	 * @param   integer  $length  Length of string
+	 *
+	 * @return  string  Generated token
+	 *
+	 * @since   1.3.1
+	 */
+	protected function createToken($length = 32)
+	{
+		return bin2hex(random_bytes($length));
 	}
 
 	/**
@@ -968,8 +1020,21 @@ class Session implements \IteratorAggregate
 			$this->cookie_path = $options['cookie_path'];
 		}
 
+		if (isset($options['cookie_httponly']))
+		{
+			$this->cookie_httponly = (bool) $options['cookie_httponly'];
+		}
+
+		if (isset($options['cookie_samesite']))
+		{
+			$this->cookie_samesite = $options['cookie_samesite'];
+		}
+
 		// Sync the session maxlifetime
-		ini_set('session.gc_maxlifetime', $this->getExpire());
+		if (!headers_sent())
+		{
+			ini_set('session.gc_maxlifetime', $this->getExpire());
+		}
 
 		return true;
 	}
@@ -987,7 +1052,7 @@ class Session implements \IteratorAggregate
 	 *
 	 * @return  boolean  True on success
 	 *
-	 * @see     http://shiflett.org/articles/the-truth-about-sessions
+	 * @link    http://shiflett.org/articles/the-truth-about-sessions
 	 * @since   1.0
 	 * @deprecated  2.0  Use validate instead
 	 */
@@ -1009,7 +1074,7 @@ class Session implements \IteratorAggregate
 	 *
 	 * @return  boolean  True on success
 	 *
-	 * @see     http://shiflett.org/articles/the-truth-about-sessions
+	 * @link    http://shiflett.org/articles/the-truth-about-sessions
 	 * @since   1.3.0
 	 */
 	protected function validate($restart = false)
@@ -1021,7 +1086,6 @@ class Session implements \IteratorAggregate
 
 			$this->set('session.client.address', null);
 			$this->set('session.client.forwarded', null);
-			$this->set('session.client.browser', null);
 			$this->set('session.token', null);
 		}
 
@@ -1040,22 +1104,18 @@ class Session implements \IteratorAggregate
 			}
 		}
 
-		// Record proxy forwarded for in the session in case we need it later
-		if (isset($_SERVER['HTTP_X_FORWARDED_FOR']))
-		{
-			$this->set('session.client.forwarded', $_SERVER['HTTP_X_FORWARDED_FOR']);
-		}
+		$remoteAddr = $this->input->server->getString('REMOTE_ADDR', '');
 
 		// Check for client address
-		if (in_array('fix_adress', $this->security) && isset($_SERVER['REMOTE_ADDR']))
+		if (\in_array('fix_adress', $this->security) && !empty($remoteAddr) && filter_var($remoteAddr, FILTER_VALIDATE_IP) !== false)
 		{
 			$ip = $this->get('session.client.address');
 
 			if ($ip === null)
 			{
-				$this->set('session.client.address', $_SERVER['REMOTE_ADDR']);
+				$this->set('session.client.address', $remoteAddr);
 			}
-			elseif ($_SERVER['REMOTE_ADDR'] !== $ip)
+			elseif ($remoteAddr !== $ip)
 			{
 				$this->setState('error');
 
@@ -1063,20 +1123,12 @@ class Session implements \IteratorAggregate
 			}
 		}
 
-		// Check for clients browser
-		if (in_array('fix_browser', $this->security) && isset($_SERVER['HTTP_USER_AGENT']))
-		{
-			$browser = $this->get('session.client.browser');
+		$xForwardedFor = $this->input->server->getString('HTTP_X_FORWARDED_FOR', '');
 
-			if ($browser === null)
-			{
-				$this->set('session.client.browser', $_SERVER['HTTP_USER_AGENT']);
-			}
-			elseif ($_SERVER['HTTP_USER_AGENT'] !== $browser)
-			{
-				// @todo remove code: 				$this->_state	=	'error';
-				// @todo remove code: 				return false;
-			}
+		// Record proxy forwarded for in the session in case we need it later
+		if (!empty($xForwardedFor) && filter_var($xForwardedFor, FILTER_VALIDATE_IP) !== false)
+		{
+			$this->set('session.client.forwarded', $xForwardedFor);
 		}
 
 		return true;

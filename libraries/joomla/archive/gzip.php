@@ -3,7 +3,7 @@
  * @package     Joomla.Platform
  * @subpackage  Archive
  *
- * @copyright   Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE
  */
 
@@ -15,12 +15,13 @@ jimport('joomla.filesystem.file');
  * Gzip format adapter for the JArchive class
  *
  * This class is inspired from and draws heavily in code and concept from the Compress package of
- * The Horde Project <http://www.horde.org>
+ * The Horde Project <https://www.horde.org>
  *
  * @contributor  Michael Slusarz <slusarz@horde.org>
  * @contributor  Michael Cochrane <mike@graftonhall.co.nz>
  *
- * @since  11.1
+ * @since       1.5
+ * @deprecated  4.0 use the Joomla\Archive\Gzip class instead
  */
 class JArchiveGzip implements JArchiveExtractable
 {
@@ -28,7 +29,7 @@ class JArchiveGzip implements JArchiveExtractable
 	 * Gzip file flags.
 	 *
 	 * @var    array
-	 * @since  11.1
+	 * @since  1.5
 	 */
 	private $_flags = array('FTEXT' => 0x01, 'FHCRC' => 0x02, 'FEXTRA' => 0x04, 'FNAME' => 0x08, 'FCOMMENT' => 0x10);
 
@@ -36,7 +37,7 @@ class JArchiveGzip implements JArchiveExtractable
 	 * Gzip file data buffer
 	 *
 	 * @var    string
-	 * @since  11.1
+	 * @since  1.5
 	 */
 	private $_data = null;
 
@@ -49,10 +50,10 @@ class JArchiveGzip implements JArchiveExtractable
 	 *
 	 * @return  boolean  True if successful
 	 *
-	 * @since   11.1
+	 * @since   1.5
 	 * @throws  RuntimeException
 	 */
-	public function extract($archive, $destination, array $options = array ())
+	public function extract($archive, $destination, array $options = array())
 	{
 		$this->_data = null;
 
@@ -97,8 +98,10 @@ class JArchiveGzip implements JArchiveExtractable
 	 * @param   array   $options      Extraction options [unused]
 	 *
 	 * @return  boolean  True if successful
+	 *
+	 * @since   3.6.0
 	 */
-	protected function extractStream($archive, $destination, $options = array ())
+	protected function extractStream($archive, $destination, $options = array())
 	{
 		// New style! streams!
 		$input = JFactory::getStream();
@@ -147,7 +150,10 @@ class JArchiveGzip implements JArchiveExtractable
 	 * @param   int     $code  The application-internal error code for this error
 	 * @param   string  $msg   The error message, which may also be shown the user if need be.
 	 *
-	 * @return mixed JError object or Runtime Exception
+	 * @return  JException  JException instance if JError class exists
+	 *
+	 * @since   3.6.0
+	 * @throws  RuntimeException if JError class does not exist
 	 */
 	private function raiseWarning($code, $msg)
 	{
@@ -164,7 +170,7 @@ class JArchiveGzip implements JArchiveExtractable
 	 *
 	 * @return  boolean  True if supported
 	 *
-	 * @since   11.3
+	 * @since   2.5.0
 	 */
 	public static function isSupported()
 	{
@@ -176,7 +182,7 @@ class JArchiveGzip implements JArchiveExtractable
 	 *
 	 * @return  integer  Data position marker for archive
 	 *
-	 * @since   11.1
+	 * @since   1.5
 	 * @throws  RuntimeException
 	 */
 	public function _getFilePosition()

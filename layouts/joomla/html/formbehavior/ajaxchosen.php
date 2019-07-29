@@ -3,11 +3,11 @@
  * @package     Joomla.Site
  * @subpackage  Layout
  *
- * @copyright   Copyright (C) 2005 - 2015 Open Source Matters, Inc. All rights reserved.
+ * @copyright   Copyright (C) 2005 - 2019 Open Source Matters, Inc. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
 
-defined('_JEXEC') or die;
+defined('JPATH_BASE') or die;
 
 /**
  * Layout variables
@@ -31,7 +31,7 @@ JText::script('JGLOBAL_LOOKING_FOR');
 
 // Include jQuery
 JHtml::_('jquery.framework');
-JHtml::_('script', 'jui/ajax-chosen.min.js', false, true, false, false, $debug);
+JHtml::_('script', 'jui/ajax-chosen.min.js', array('version' => 'auto', 'relative' => true, 'detectDebug' => $debug));
 
 JFactory::getDocument()->addScriptDeclaration(
 	"
